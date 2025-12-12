@@ -7,7 +7,7 @@ metadata:
     tekton.dev/tags: image-build, konflux
   labels:
     app.kubernetes.io/version: "0.1"
-  name: run-script-remote-oci-ta
+  name: build-windows
 spec:
   description: |-
     This task allows to run a script stored on the git repository and stores the resultant directory
