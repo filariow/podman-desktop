@@ -79,6 +79,16 @@ spec:
     type: string
     default: ""
   results:
+    - description: Digest of the image just built
+      name: IMAGE_DIGEST
+    - description: Image reference of the built image
+      name: IMAGE_REF
+    - description: Image repository and tag where the built image was pushed
+      name: IMAGE_URL
+    - description: Reference of SBOM blob digest to enable digest-based verification
+        from provenance
+      name: SBOM_BLOB_URL
+      type: string
     - name: SCRIPT_ARTIFACT
       description: The Trusted Artifact URI pointing to the artifact with
         the application source code.
