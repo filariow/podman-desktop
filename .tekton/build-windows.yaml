@@ -77,7 +77,7 @@ spec:
   - name: REGISTRY_SECRET
     description: Name of the secret containing registry credentials (dockerconfigjson type)
     type: string
-    default: ""
+    default: "podman-desk-windows-pull-secret"
   results:
     - description: Digest of the image just built
       name: IMAGE_DIGEST
