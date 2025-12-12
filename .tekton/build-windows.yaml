@@ -16,15 +16,49 @@ spec:
   - name: SCRIPT_RUNNER_IMAGE
     description: The image to run the script in
     type: string
+    default: "mcr.microsoft.com/windows/servercore:ltsc2025"
   - name: SCRIPT
     description: The script to launch
     type: string
+    default: |-
+      # Clone and build Podman Desktop
+      git clone https://github.com/podman-desktop/podman-desktop --depth 1
+      cd podman-desktop
+      pnpm install
+      pnpm compile:current
+
+      # Prepare artifacts for OCI publishing
+      New-Item -ItemType Directory -Force -Path C:/shared/build-artifacts | Out-Null
+
+      # Copy build outputs
+      if (Test-Path "dist") {
+        Copy-Item -Recurse -Force dist/* C:/shared/build-artifacts/
+        Write-Host "Build artifacts copied to C:/shared/build-artifacts/"
+      } else {
+        Write-Host "Warning: dist directory not found"
+      }
+
+      # Create build manifest
+      $manifest = @{
+        "build_time" = Get-Date -Format o
+        "platform" = "windows-amd64"
+        "project" = "podman-desktop"
+        "task" = "run-script-remote-win-task"
+      }
+      $manifest | ConvertTo-Json | Out-File C:/shared/build-artifacts/build-manifest.json
+
+      Write-Host "Build artifacts prepared:"
+      Get-ChildItem C:/shared/build-artifacts/ -Recurse | Select-Object FullName, Length
   - name: SCRIPT_DEPENDENCIES
     description: The script to launch to install dependencies. It will be executed before the SCRIPT
     type: string
+    default: |-
+      Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+      choco install git nodejs pnpm --confirm --limit-output --timeout 216000
   - name: SCRIPT_WORKDIR
     description: The directory to launch the script from
     type: string
+    default: "C:\\scripts\\"
   - description: The platform to build on
     name: PLATFORM
     type: string
@@ -39,7 +73,7 @@ spec:
   - name: SCRIPT_ARTIFACT_RELATIVE_PATH
     description: Relative path within /shared/ to package as OCI artifact
     type: string
-    default: "."
+    default: "build-artifacts"
   - name: REGISTRY_SECRET
     description: Name of the secret containing registry credentials (dockerconfigjson type)
     type: string
