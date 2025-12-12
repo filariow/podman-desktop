@@ -248,14 +248,56 @@ spec:
       runAfter:
       - prefetch-dependencies
       taskRef:
+        name: build-windows
         params:
-        - name: name
-          value: buildah-remote-oci-ta
-        - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-buildah-remote-oci-ta:0.7@sha256:b24359805297760c87cbce7b4c378267bc83aa1b9a3ac8431829f80bc26ed5d7
-        - name: kind
-          value: task
-        resolver: bundles
+        - name: SCRIPT_RUNNER_IMAGE
+          value: "mcr.microsoft.com/windows/servercore:ltsc2025"
+        - name: "SCRIPT_DEPENDENCIES"
+          value: |
+            Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            choco install git nodejs pnpm --confirm --limit-output --timeout 216000
+        - name: "SCRIPT"
+          value: |
+            # Clone and build Podman Desktop
+            git clone https://github.com/podman-desktop/podman-desktop --depth 1
+            cd podman-desktop
+            pnpm install
+            pnpm compile:current
+
+            # Prepare artifacts for OCI publishing
+            New-Item -ItemType Directory -Force -Path C:/shared/build-artifacts | Out-Null
+
+            # Copy build outputs
+            if (Test-Path "dist") {
+              Copy-Item -Recurse -Force dist/* C:/shared/build-artifacts/
+              Write-Host "Build artifacts copied to C:/shared/build-artifacts/"
+            } else {
+              Write-Host "Warning: dist directory not found"
+            }
+
+            # Create build manifest
+            $manifest = @{
+              "build_time" = Get-Date -Format o
+              "platform" = "windows-amd64"
+              "project" = "podman-desktop"
+              "task" = "run-script-remote-win-task"
+            }
+            $manifest | ConvertTo-Json | Out-File C:/shared/build-artifacts/build-manifest.json
+
+            Write-Host "Build artifacts prepared:"
+            Get-ChildItem C:/shared/build-artifacts/ -Recurse | Select-Object FullName, Length
+        - name: SCRIPT_WORKDIR
+          value: "C:\\scripts\\"
+        - name: PLATFORM
+          value: windows/c4xlarge-amd64
+        - name: ociStorage
+          value: "quay.io/podman_desk_windows/artifacts"
+        - name: ociArtifactExpiresAfter
+          value: "30d"
+        - name: SCRIPT_ARTIFACT_RELATIVE_PATH
+          value: "build-artifacts"
+        - name: REGISTRY_SECRET
+          value: "podman-desk-windows-pull-secret"
       when:
       - input: $(tasks.init.results.build)
         operator: in
